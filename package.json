@@ -1,0 +1,67 @@
+{
+    "name": "trustmark.js",
+    "version": "0.0.1",
+    "author": "Bertrand Gondouin <gondouin@gmail.com>",
+    "license": "GPLv3",
+    "description": "Javascript implementation of TrustMark watermarking - Universal Watermarking for Arbitrary Resolution Images",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bgon/trustmark.js" 
+     },
+    "scripts": {
+        "lint": "eslint src",
+        "format": "prettier --write src tests",
+        "test": "mocha 'tests/**/*test.ts'",
+        "build": "tsup src/index.ts --format cjs,esm --clean && npm run postpack",
+        "clean": "rimraf dist",
+        "prepack": "npm run clean && npm run build",
+        "postpack": "sed -i '/import/d' dist/index.js"
+    },
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "files": [
+        "dist"
+    ],
+    "dependencies": {
+        "@tensorflow/tfjs-node": "^4.22.0",
+        "@tensorflow/tfjs-node-gpu": "^4.22.0",
+        "onnxruntime-node": "^1.20.1"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.12.0",
+        "@types/chai": "^5.0.1",
+        "@types/eslint__js": "^8.42.3",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^22.10.0",
+        "@typescript-eslint/parser": "^8.8.0",
+        "chai": "^5.1.2",
+        "eslint": "^9.15.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.2.1",
+        "mocha": "^10.8.2",
+        "mocha-ctrf-json-reporter": "^0.0.6",
+        "prettier": "3.3.3",
+        "rimraf": "^6.0.1",
+        "ts-node": "^10.9.2",
+        "tsup": "^8.3.5",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2",
+        "typescript-eslint": "^8.16.0"
+    },
+    "mocha": {
+        "require": [
+            "ts-node/register"
+        ],
+        "import": "tsx/esm"
+    },
+    "keywords": [
+        "watermark",
+        "BCH",
+        "ECC",
+        "Berlekamp-Massey",
+        "Galois",
+        "encoding",
+        "decoding"
+    ]
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>TrustMark.js encoding & decoding watermarks</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.svg">
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script type="module" src="./index.js"></script>
+</head>
+
+<body>
+
+  <h1>TrustMark images watermarking with TrustMark.js</h1>
+  <div class="container">
+
+    <p>Javascript implementation of TrustMark watermarking, as described in <a href="https://arxiv.org/abs/2311.18297"
+        target="_blank" rel="noopener noreferrer">TrustMark - Universal
+        Watermarking for Arbitrary Resolution Images</a>, for
+      encoding & decoding TrustMark watermarks locally in modern browsers as well as Node.js.</p>
+     
+
+  </div>
+
+  <div class="container">
+    <div class="row">
+      <div id="image_container" class="display">
+        <div class="loader" id="processing"></div> 
+        <div id="processing"></div>
+        <label for="upload" class="display_label" id="result">🖼️ Input Image</label>
+        <label for="upload" id="tooltip">
+          <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#000"
+              d="M3.5 24.3a3 3 0 0 1-1.9-.8c-.5-.5-.8-1.2-.8-1.9V2.9c0-.7.3-1.3.8-1.9.6-.5 1.2-.7 2-.7h18.6c.7 0 1.3.2 1.9.7.5.6.7 1.2.7 2v18.6c0 .7-.2 1.4-.7 1.9a3 3 0 0 1-2 .8H3.6Zm0-2.7h18.7V2.9H3.5v18.7Zm2.7-2.7h13.3c.3 0 .5 0 .6-.3v-.7l-3.7-5a.6.6 0 0 0-.6-.2c-.2 0-.4 0-.5.3l-3.5 4.6-2.4-3.3a.6.6 0 0 0-.6-.3c-.2 0-.4.1-.5.3l-2.7 3.6c-.1.2-.2.4 0 .7.1.2.3.3.6.3Z">
+            </path>
+          </svg>
+          Click to upload image
+          <label for="upload">(or try examples below)</label>
+        </label>
+        <div class="download-buttons" id="download">
+
+          <button id="download-jpeg" class="download-button" onclick="download('jpeg');">
+
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 32 32">
+              <path fill="currentColor"
+                d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zm0-10l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10l10-10z">
+              </path>
+            </svg>
+            jpeg
+          </button>
+
+          <button id="download-png" class="download-button" onclick="download('png');">
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 32 32">
+              <path fill="currentColor"
+                d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zm0-10l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10l10-10z">
+              </path>
+            </svg>
+            png
+          </button>
+
+        </div>
+        <img id="display_img"></img>
+      </div>
+      <div class="display">
+        <div>
+          <label class="display_label">✨ Residual (x10)</label>
+          <canvas id="residual_img" width="256" height="256"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+
+
+  </div>
+
+  <div class="container">
+
+    <div class="ux">
+      <pre id="status"></pre>
+      <input id="secret" type="text" class="form-control" placeholder="Watermark content: 9 ASCII characters, or 68 bits binary string (maximum length)" aria-label="Watermark payload">
+      <label for="secret"></label>
+      <div class="settings">
+        <div class="strength">
+          <label for="set_wm_strength">Strength: <span id="wm_strength"><span></span></label>
+
+          <input type="range" id="set_wm_strength" name="set_wm_strength" value=3 min="0" max="30" step="1">
+        </div>
+
+
+        <button class="btn btn-secondary" type="button" id="encode_button">Inject Watermark</button>
+        <button class="btn btn-secondary" type="button" id="erase_button">Erase Watermark</button>
+        <input id="upload" type="file" accept="image/*" />
+      </div>
+    </div>
+
+    <div class="examples">
+      <div>
+        <h4>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true"
+            role="img" width="1em" height="1em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 32 32">
+            <path fill="currentColor" d="M10 6h18v2H10zm0 18h18v2H10zm0-9h18v2H10zm-6 0h2v2H4zm0-9h2v2H4zm0 18h2v2H4z">
+            </path>
+          </svg> <a href="/docs/"> Documentation </a>
+        </h4>
+        <h4>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true"
+            role="img" width="1em" height="1em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 32 32">
+            <path fill="currentColor" d="M10 6h18v2H10zm0 18h18v2H10zm0-9h18v2H10zm-6 0h2v2H4zm0-9h2v2H4zm0 18h2v2H4z">
+            </path>
+          </svg> Examples, without watermark
+        </h4>
+        <div class="gallery">
+          <div class="gallery-item" id="ex1">
+            <img src="tests/fixtures/Django_Reinhardt_(Gottlieb_07301).jpeg"
+              alt="Django Reinhardt at the Aquarium jazz club in New York, NY by  William P. Gottlieb (Gottlieb_07301), CC0 Public Domain Dedication"
+              name="Django_Reinhardt_(Gottlieb_07301)" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex2">
+            <img src="tests/fixtures/Schongau,_Photon-Stromtankstelle_im_Bahnhof,_1.jpeg"
+              name="Schongau,_Photon-Stromtankstelle_im_Bahnhof,_1"
+              alt="Schongau, eine Photon-Stromtankstelle für Züge am Bahnhof. By Renardo la vulpo, CC0 Public Domain Dedication"
+              class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex3">
+            <img src="tests/fixtures/Grand_Canyon_South_Rim_at_Sunset.jpeg"
+              alt="Grand Canyon South Rim at Sunset, by Mgimelfarb, CC0 Public Domain Dedication"
+              name="Grand_Canyon_South_Rim_at_Sunset" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex3">
+            <img src="tests/fixtures/Quarry_Bay_apartments_(Unsplash).jpeg"
+              alt="Quarry Bay apartments, by Brian Sugden, CC0 Public Domain Dedication"
+              name="Quarry_Bay_apartments_(Unsplash)" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="examples">
+      <div>
+        <h4>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true"
+            role="img" width="1em" height="1em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 32 32">
+            <path fill="currentColor" d="M10 6h18v2H10zm0 18h18v2H10zm0-9h18v2H10zm-6 0h2v2H4zm0-9h2v2H4zm0 18h2v2H4z">
+            </path>
+          </svg> Examples, with watermark
+        </h4>
+        <div class="gallery">
+          <div class="gallery-item" id="ex1">
+            <img src="tests/fixtures/Django_Reinhardt_(Gottlieb_07301)_watermarked.jpeg"
+              alt="Django Reinhardt at the Aquarium jazz club in New York, NY by  William P. Gottlieb (Gottlieb_07301), CC0 Public Domain Dedication"
+              name="Django_Reinhardt_(Gottlieb_07301)" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex2">
+            <img src="tests/fixtures/Schongau,_Photon-Stromtankstelle_im_Bahnhof,_1_watermarked.jpeg"
+              name="Schongau,_Photon-Stromtankstelle_im_Bahnhof,_1"
+              alt="Schongau, eine Photon-Stromtankstelle für Züge am Bahnhof. By Renardo la vulpo, CC0 Public Domain Dedication"
+              class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex3">
+            <img src="tests/fixtures/Grand_Canyon_South_Rim_at_Sunset_watermarked.jpeg"
+              alt="Grand Canyon South Rim at Sunset, by Mgimelfarb, CC0 Public Domain Dedication"
+              name="Grand_Canyon_South_Rim_at_Sunset" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+          <div class="gallery-item" id="ex3">
+            <img src="tests/fixtures/Quarry_Bay_apartments_(Unsplash)_watermarked.jpeg"
+              alt="Quarry Bay apartments, by Brian Sugden, CC0 Public Domain Dedication"
+              name="Quarry_Bay_apartments_(Unsplash)" class="img-thumbnail" onclick="decode_ex(this);">
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

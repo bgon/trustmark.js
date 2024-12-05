@@ -1,0 +1,65 @@
+[
+  {
+    "model": "Trustmark variant Q encoder",
+    "model_name": "encoder_Q.onnx",
+    "model_remote_host": "https://cc-assets.netlify.app",
+    "model_path": "/watermarking/trustmark-models/encoder_Q.onnx",
+    "onnx_version": "1.9.0",
+    "opset_version": 17,
+    "metadata": {
+      "model_sha": "19b3d1b25836130ffd78775a8f61539f993375d1823ef0e59ba5b8dffb4f892d",
+      "model_bytes": 17312208,
+      "tags": ["watermarking"],
+      "io_ports": {
+        "inputs": [
+          {
+            "name": " onnx::Concat_0",
+            "shape": [1, 3, 256, 256],
+            "type": "tensor(float)"
+          },
+          {
+            "name": "onnx::Gemm_1",
+            "shape": [1, 100],
+            "type": "tensor(float)"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "image",
+            "shape": [1, 3, 256, 256],
+            "type": "tensor(float)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "model": "Trustmark variant Q decoder",
+    "model_name": "decoder_Q.onnx",
+    "model_remote_host": "https://cc-assets.netlify.app",
+    "model_path": "/watermarking/trustmark-models/decoder_Q.onnx",
+    "onnx_version": "1.9.0",
+    "opset_version": 17,
+    "metadata": {
+      "model_sha": "ee3268f057c9dabef680e169302f5973d0589feea86189ed229a896cc3aa88df",
+      "model_bytes": 47401222,
+      "tags": ["watermarking"],
+      "io_ports": {
+        "inputs": [
+          {
+            "name": "image",
+            "shape": [1, 3, 256, 256],
+            "type": "tensor(float)"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output",
+            "shape": [1, 100],
+            "type": "tensor(float)"
+          }
+        ]
+      }
+    }
+  }
+]
