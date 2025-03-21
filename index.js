@@ -23,6 +23,7 @@ let set_wm_strength_slider = document.getElementById("set_wm_strength");
 let wm_strength = document.getElementById('wm_strength')
 let encode_button = document.getElementById("encode_button");
 let erase_button = document.getElementById("erase_button");
+let model_type_toggle = document.getElementById("toggle");
 let fileUpload = document.getElementById("upload");
 let fileDownload = document.getElementById("download");
 let tooltip = document.getElementById("tooltip");
@@ -34,6 +35,7 @@ window.addEventListener('status', (event) => {
 });
 
 wm_strength.textContent = WM_STRENGTH
+
 
 let current_image;
 let tm = new TrustMark({ verbose: false, model_type: MODE, encoding_type: ENCODING_TYPE })
@@ -47,6 +49,10 @@ hideSpinner()
 // UI functions
 // ======================================================================
 
+model_type_toggle.addEventListener("click", async b => {
+   if(model_type_toggle.checked===true){await tm.loadModels('P')};
+   if(model_type_toggle.checked===false){await tm.loadModels('Q')};
+});
 encode_button.addEventListener("click", async b => {
     encode().catch(e => { console.error(e) });
 });

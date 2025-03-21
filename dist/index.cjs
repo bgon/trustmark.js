@@ -871,6 +871,40 @@ var ONNX_HUB_MANIFEST_default = [
     }
   },
   {
+    model: "Trustmark variant P encoder",
+    model_name: "encoder_P.onnx",
+    model_remote_host: "https://cc-assets.netlify.app",
+    model_path: "/watermarking/trustmark-models/encoder_P.onnx",
+    onnx_version: "1.9.0",
+    opset_version: 17,
+    metadata: {
+      model_sha: "053441c9c9f05fc158ccba71c610d9d58fcd2c82d1912bf0ffcee988cf2f74c8",
+      model_bytes: 17312208,
+      tags: ["watermarking"],
+      io_ports: {
+        inputs: [
+          {
+            name: " onnx::Concat_0",
+            shape: [1, 3, 256, 256],
+            type: "tensor(float)"
+          },
+          {
+            name: "onnx::Gemm_1",
+            shape: [1, 100],
+            type: "tensor(float)"
+          }
+        ],
+        outputs: [
+          {
+            name: "image",
+            shape: [1, 3, 256, 256],
+            type: "tensor(float)"
+          }
+        ]
+      }
+    }
+  },
+  {
     model: "Trustmark variant Q decoder",
     model_name: "decoder_Q.onnx",
     model_remote_host: "https://cc-assets.netlify.app",
@@ -886,6 +920,35 @@ var ONNX_HUB_MANIFEST_default = [
           {
             name: "image",
             shape: [1, 3, 256, 256],
+            type: "tensor(float)"
+          }
+        ],
+        outputs: [
+          {
+            name: "output",
+            shape: [1, 100],
+            type: "tensor(float)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    model: "Trustmark variant P decoder",
+    model_name: "decoder_P.onnx",
+    model_remote_host: "https://cc-assets.netlify.app",
+    model_path: "/watermarking/trustmark-models/decoder_P.onnx",
+    onnx_version: "1.9.0",
+    opset_version: 17,
+    metadata: {
+      model_sha: "be6d7c33f8a7b376f179e75f3f7c58ff816a9ac7bb6d37fd0a729a635f624c35",
+      model_bytes: 47400467,
+      tags: ["watermarking"],
+      io_ports: {
+        inputs: [
+          {
+            name: "image",
+            shape: [1, 3, 224, 224],
             type: "tensor(float)"
           }
         ],
@@ -926,7 +989,9 @@ var TrustMark = class _TrustMark {
   ecc;
   decoder_session;
   encoder_session;
-  preprocess_session;
+  preprocess_224_session;
+  preprocess_256_session;
+  model_type;
   /**
    * Constructs a new TrustMark instance.
    * @param {boolean} [use_ecc=true] - use BCH error correction on the payload, reducing payload size (default)
@@ -946,7 +1011,7 @@ var TrustMark = class _TrustMark {
    */
   async decode(image_url) {
     tf.engine().startScope();
-    const stego_image = await this.loadImage(image_url);
+    const stego_image = await this.loadImage(image_url, "decode");
     await sleep(0);
     tf.engine().endScope();
     const input_feeds = { image: stego_image.onnx };
@@ -991,7 +1056,7 @@ var TrustMark = class _TrustMark {
    */
   async encode(image_url, string_secret, wm_strength = 0.4, maculate = false, output = "bytes") {
     tf.engine().startScope();
-    const cover_image = await this.loadImage(image_url);
+    const cover_image = await this.loadImage(image_url, "encode");
     let mode;
     let secret = new Float32Array(100);
     if (maculate === true) {
@@ -1055,7 +1120,7 @@ var TrustMark = class _TrustMark {
     await sleep(0);
     start_time = /* @__PURE__ */ new Date();
     let tf_merge = tf.clipByValue(tf.add(tf_residual.mul(wm_strength), cover_image.tf_crop), 0, 1);
-    if (cover_image.aspect_ratio > 2) {
+    if (cover_image.aspect_ratio > 2 || this.model_type == "P") {
       if (cover_image.orientation == "landscape") {
         const axe_length = Math.floor((cover_image.width - cover_image.crop_axe) / 2);
         const part_a = cover_image.tf_source.slice([0, 0, 0], [cover_image.crop_axe, axe_length, 3]);
@@ -1102,12 +1167,14 @@ var TrustMark = class _TrustMark {
     };
   }
   /**
-   * Processes an image and returns the processed data.
+   * Processes the input image based on the specified processing type.
    *
-   * @param image The input image data.
-   * @returns A promise that resolves with the processed image data or rejects with an error.
+   * @param {any} image - The image object containing the tensor source and other properties.
+   * @param {string} process_type - The type of processing to be applied to the image ('decode' or other types).
+   * @returns {Promise<any>} A promise that resolves with the processed image.
+   * @throws {Error} Throws an error if there is an issue processing the image.
    */
-  async processImage(image2) {
+  async processImage(image2, process_type) {
     const start_time = /* @__PURE__ */ new Date();
     image2.width = image2.tf_source.shape[2];
     image2.height = image2.tf_source.shape[1];
@@ -1118,7 +1185,7 @@ var TrustMark = class _TrustMark {
       image2.orientation = "portrait";
       image2.aspect_ratio = image2.height / image2.width;
     }
-    if (image2.aspect_ratio > ASPECT_RATIO_LIM) {
+    if (image2.aspect_ratio > ASPECT_RATIO_LIM || this.model_type == "P") {
       const size = Math.min(image2.width, image2.height);
       const left = (image2.width - size) / 2;
       const top = (image2.height - size) / 2;
@@ -1141,19 +1208,25 @@ var TrustMark = class _TrustMark {
     const onnxTensor = new ort.Tensor("float32", data, image2.tf_crop.shape);
     image2.tf_crop = image2.tf_crop.transpose([0, 2, 3, 1]);
     image2.tf_crop = image2.tf_crop.squeeze();
-    image2.onnx = (await this.preprocess_session.run({ input: onnxTensor })).output;
+    if (this.model_type == "P" && process_type == "decode") {
+      image2.onnx = (await this.preprocess_224_session.run({ input: onnxTensor })).output;
+    } else {
+      image2.onnx = (await this.preprocess_256_session.run({ input: onnxTensor })).output;
+    }
     await sleep(0);
     const time_elapsed = (/* @__PURE__ */ new Date()).getTime() - start_time.getTime();
     tsLog(`Processing: ${image2.width}x${image2.height}: ${time_elapsed}ms`);
     return image2;
   }
   /**
-   * Loads an image from a given URL and processes it.
+   * Loads an image from a URL or filesystem and processes it based on the specified type.
    *
-   * @param image_url The URL of the image to load.
-   * @returns A promise that resolves with the processed image data or rejects with an error.
+   * @param {string} image_url - The URL or filesystem path of the image to be loaded.
+   * @param {string} process_type - The type of processing to be applied to the image.
+   * @returns {Promise<any>} A promise that resolves with the processed image.
+   * @throws {Error} Throws an error if there is an issue loading or processing the image.
    */
-  async loadImage(image_url) {
+  async loadImage(image_url, process_type) {
     return new Promise(async (resolve) => {
       const start_time = /* @__PURE__ */ new Date();
       const image2 = { url: image_url };
@@ -1166,28 +1239,47 @@ var TrustMark = class _TrustMark {
           image2.tf_source = tf.browser.fromPixels(img).expandDims(0).div(255);
           const time_elapsed = (/* @__PURE__ */ new Date()).getTime() - start_time.getTime();
           tsLog(`Loading: ${time_elapsed}ms`);
-          resolve(await this.processImage(image2));
+          resolve(await this.processImage(image2, process_type));
         };
         img.src = image2.url;
       }
       if (IS_NODE) {
         const time_elapsed = (/* @__PURE__ */ new Date()).getTime() - start_time.getTime();
         tsLog(`Loading: ${time_elapsed}ms`);
-        resolve(await this.processImage(image2));
+        resolve(await this.processImage(image2, process_type));
       }
     });
   }
   /**
-   * Loads the ONNX models for preprocessing, encoding, and decoding.
+   * Loads the necessary models based on the specified type.
+   *
+   * @param {string} [type='Q'] - The type of models to load ('Q' or 'P').
+   * @throws {Error} Throws an error if there is an issue loading any of the models.
    */
-  async loadModels() {
+  async loadModels(type = "Q") {
     const models = await getModels();
-    const decoder_model_url = models["decoder_Q.onnx"];
-    const encoder_model_url = models["encoder_Q.onnx"];
+    let decoder_model_url;
+    let encoder_model_url;
+    this.model_type = type;
+    if (type == "Q") {
+      decoder_model_url = models["decoder_Q.onnx"];
+      encoder_model_url = models["encoder_Q.onnx"];
+    }
+    if (type == "P") {
+      decoder_model_url = models["decoder_P.onnx"];
+      encoder_model_url = models["encoder_P.onnx"];
+      this.preprocess_224_session = await ort.InferenceSession.create("models/preprocess_224.onnx").catch(
+        (error) => {
+          throw new Error(`Error loading preprocessing ONNX model: ${error}`);
+        }
+      );
+    }
     const session_option = { executionProviders: ["cpu"] };
-    this.preprocess_session = await ort.InferenceSession.create("models/preprocess.onnx").catch((error) => {
-      throw new Error(`Error loading preprocessing ONNX model: ${error}`);
-    });
+    this.preprocess_256_session = await ort.InferenceSession.create("models/preprocess_256.onnx").catch(
+      (error) => {
+        throw new Error(`Error loading preprocessing ONNX model: ${error}`);
+      }
+    );
     this.decoder_session = await ort.InferenceSession.create(decoder_model_url, session_option).catch((error) => {
       throw new Error(`Error loading decoder ONNX model: ${error}`);
     });

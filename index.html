@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <meta charset="utf-8">
   <title>TrustMark.js encoding & decoding watermarks</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="favicon.svg">
@@ -19,14 +20,14 @@
         target="_blank" rel="noopener noreferrer">TrustMark - Universal
         Watermarking for Arbitrary Resolution Images</a>, for
       encoding & decoding TrustMark watermarks locally in modern browsers as well as Node.js.</p>
-     
+
 
   </div>
 
   <div class="container">
     <div class="row">
       <div id="image_container" class="display">
-        <div class="loader" id="processing"></div> 
+        <div class="loader" id="processing"></div>
         <div id="processing"></div>
         <label for="upload" class="display_label" id="result">🖼️ Input Image</label>
         <label for="upload" id="tooltip">
@@ -79,9 +80,18 @@
 
     <div class="ux">
       <pre id="status"></pre>
-      <input id="secret" type="text" class="form-control" placeholder="Watermark content: 9 ASCII characters, or 68 bits binary string (maximum length)" aria-label="Watermark payload">
+      <input id="secret" type="text" class="form-control"
+        placeholder="Watermark content: 9 ASCII characters, or 68 bits binary string (maximum length)"
+        aria-label="Watermark payload">
       <label for="secret"></label>
       <div class="settings">
+        <div class="model">
+        <input type="checkbox" id="toggle" class="toggleModel" value="P" />
+        <label for="toggle" class="toggleContainer">
+          <div>Quality model</div>
+          <div>Perceptual model</div>
+        </label>
+      </div>
         <div class="strength">
           <label for="set_wm_strength">Strength: <span id="wm_strength"><span></span></label>
 
@@ -102,7 +112,7 @@
             role="img" width="1em" height="1em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 32 32">
             <path fill="currentColor" d="M10 6h18v2H10zm0 18h18v2H10zm0-9h18v2H10zm-6 0h2v2H4zm0-9h2v2H4zm0 18h2v2H4z">
             </path>
-          </svg> <a href="/docs/"> Documentation </a>
+          </svg> <a href="docs/"> Documentation </a>
         </h4>
         <h4>
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true"

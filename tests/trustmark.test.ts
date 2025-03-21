@@ -5,7 +5,7 @@ let tm = new TrustMark();
 
 let image_to_decode = 'tests/fixtures/Django_Reinhardt_(Gottlieb_07301)_watermarked.jpeg';
 let image_to_encode = 'tests/fixtures/Quarry_Bay_apartments_(Unsplash).jpeg';
-await tm.loadModels();
+await tm.loadModels('Q');
 
 describe('TrustMark Tests', () => {
   it('should return 28 whith encoding_type: TrustMark.Encoding.BCH_4', () => {

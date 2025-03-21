@@ -12,7 +12,7 @@ body {
 
 body {
     padding: 32px;
-
+    background-color: rgb(255, 255, 255);
 }
 
 h1 {
@@ -175,6 +175,8 @@ input[type="number"] {
 
 .strength label {
     width: 30%;
+    font-weight: bold;
+    text-align: center;
 }
 
 .settings {
@@ -291,4 +293,68 @@ svg {
     100% {
         transform: rotate(360deg);
     }
+}
+
+.toggleContainer {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: fit-content;
+    border: 1px solid #D1D5DB;
+    border-radius: 16px;
+    background: rgb(55, 65, 81);
+    font-weight: bold;
+    color: rgb(55, 65, 81);
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.toggleContainer::before {
+    content: '';
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    left: 0%;
+    border-radius: 16px;
+    background: rgb(55, 65, 81);
+    background-image: linear-gradient(to right bottom, rgb(243, 244, 246), rgb(229, 231, 235));
+    transition: all 0.3s;
+}
+
+.toggleModel:checked+.toggleContainer::before {
+    left: 50%;
+}
+
+.toggleContainer div {
+    padding: 4px;
+    text-align: center;
+    z-index: 1;
+}
+
+.toggleModel {
+    display: none;
+}
+
+.toggleModel:checked+.toggleContainer div:first-child {
+   
+    color: #D1D5DB;
+    transition: color 0.3s;
+}
+
+.toggleModel:checked+.toggleContainer div:last-child {
+
+    color: #343434;
+    transition: color 0.3s;
+}
+
+.toggleModel+.toggleContainer div:first-child {
+      
+    color: #343434;
+    transition: color 0.3s;
+   
+}
+
+.toggleModel+.toggleContainer div:last-child {
+    color: #D1D5DB;
+    transition: color 0.3s;
 }

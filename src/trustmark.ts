@@ -54,8 +54,9 @@ export class TrustMark {
   ecc: DataLayer;
   decoder_session: any;
   encoder_session: any;
-  preprocess_session: any;
-
+  preprocess_224_session: any;
+  preprocess_256_session: any;
+  model_type: string | undefined;
   /**
    * Constructs a new TrustMark instance.
    * @param {boolean} [use_ecc=true] - use BCH error correction on the payload, reducing payload size (default)
@@ -63,7 +64,7 @@ export class TrustMark {
    * @param {number} [encoding_mode=TrustMark.encoding.BCH_4] - The data schema encoding mode to use.
    */
 
-  constructor(use_ecc = true, secret_len = 100, encoding_mode: number = TrustMark.encoding.BCH_4) {
+  constructor(use_ecc: boolean = true, secret_len: number = 100, encoding_mode: number = TrustMark.encoding.BCH_4) {
     this.use_ecc = use_ecc;
     this.secret_len = secret_len;
     this.ecc = new DataLayer(secret_len, VERBOSE, encoding_mode);
@@ -79,7 +80,7 @@ export class TrustMark {
     tf.engine().startScope();
 
     // Load and process the image
-    const stego_image = await this.loadImage(image_url);
+    const stego_image = await this.loadImage(image_url, 'decode'); // float32[1,3,224,224]
     await sleep(0);
     tf.engine().endScope();
 
@@ -147,7 +148,7 @@ export class TrustMark {
     tf.engine().startScope();
 
     // Load and process the image as a ONNX tensor
-    const cover_image = await this.loadImage(image_url); // float32[1,3,256,256]
+    const cover_image = await this.loadImage(image_url, 'encode'); // float32[1,3,256,256]
 
     let mode: string;
     let secret = new Float32Array(100);
@@ -235,7 +236,8 @@ export class TrustMark {
     start_time = new Date();
     let tf_merge = tf.clipByValue(tf.add(tf_residual.mul(wm_strength), cover_image.tf_crop), 0, 1);
 
-    if (cover_image.aspect_ratio > 2) {
+    // Concat the image in the center if aspect ratio is greater than ASPECT_RATIO_LIM or if the model type is 'P'
+    if (cover_image.aspect_ratio > 2 || this.model_type == 'P') {
       if (cover_image.orientation == 'landscape') {
         const axe_length = Math.floor((cover_image.width - cover_image.crop_axe) / 2);
         const part_a = cover_image.tf_source.slice([0, 0, 0], [cover_image.crop_axe, axe_length, 3]);
@@ -289,12 +291,14 @@ export class TrustMark {
   }
 
   /**
-   * Processes an image and returns the processed data.
+   * Processes the input image based on the specified processing type.
    *
-   * @param image The input image data.
-   * @returns A promise that resolves with the processed image data or rejects with an error.
+   * @param {any} image - The image object containing the tensor source and other properties.
+   * @param {string} process_type - The type of processing to be applied to the image ('decode' or other types).
+   * @returns {Promise<any>} A promise that resolves with the processed image.
+   * @throws {Error} Throws an error if there is an issue processing the image.
    */
-  async processImage(image: any): Promise<any> {
+  async processImage(image: any, process_type: string): Promise<any> {
     const start_time = new Date();
     image.width = image.tf_source.shape[2];
     image.height = image.tf_source.shape[1];
@@ -308,8 +312,8 @@ export class TrustMark {
       image.aspect_ratio = image.height / image.width;
     }
 
-    // Crop the image in the center if aspect ratio is greater than ASPECT_RATIO_LIM
-    if (image.aspect_ratio > ASPECT_RATIO_LIM) {
+    // Crop the image in the center if aspect ratio is greater than ASPECT_RATIO_LIM or if the model type is 'P'
+    if (image.aspect_ratio > ASPECT_RATIO_LIM || this.model_type == 'P') {
       const size = Math.min(image.width, image.height);
       const left = (image.width - size) / 2;
       const top = (image.height - size) / 2;
@@ -326,7 +330,6 @@ export class TrustMark {
       image.tf_crop = image.tf_source;
       image.crop_width = image.width;
       image.crop_height = image.height;
-      //input.tf_source.dispose;
     }
     image.tf_source = image.tf_source.squeeze();
 
@@ -336,11 +339,16 @@ export class TrustMark {
 
     // Convert the TypedArray to an ONNX Runtime tensor
     const onnxTensor = new ort.Tensor('float32', data, image.tf_crop.shape);
+
     image.tf_crop = image.tf_crop.transpose([0, 2, 3, 1]);
     image.tf_crop = image.tf_crop.squeeze();
 
     // Run preprocessing session
-    image.onnx = (await this.preprocess_session.run({ input: onnxTensor })).output;
+    if (this.model_type == 'P' && process_type == 'decode') {
+      image.onnx = (await this.preprocess_224_session.run({ input: onnxTensor })).output;
+    } else {
+      image.onnx = (await this.preprocess_256_session.run({ input: onnxTensor })).output;
+    }
     await sleep(0);
     const time_elapsed = new Date().getTime() - start_time.getTime();
     tsLog(`Processing: ${image.width}x${image.height}: ${time_elapsed}ms`);
@@ -348,12 +356,14 @@ export class TrustMark {
   }
 
   /**
-   * Loads an image from a given URL and processes it.
+   * Loads an image from a URL or filesystem and processes it based on the specified type.
    *
-   * @param image_url The URL of the image to load.
-   * @returns A promise that resolves with the processed image data or rejects with an error.
+   * @param {string} image_url - The URL or filesystem path of the image to be loaded.
+   * @param {string} process_type - The type of processing to be applied to the image.
+   * @returns {Promise<any>} A promise that resolves with the processed image.
+   * @throws {Error} Throws an error if there is an issue loading or processing the image.
    */
-  async loadImage(image_url: string): Promise<any> {
+  async loadImage(image_url: string, process_type: string): Promise<any> {
     return new Promise(async (resolve) => {
       const start_time = new Date();
       const image: any = { url: image_url };
@@ -369,7 +379,7 @@ export class TrustMark {
           image.tf_source = tf.browser.fromPixels(img).expandDims(0).div(255.0); // [h, w, 3]
           const time_elapsed = new Date().getTime() - start_time.getTime();
           tsLog(`Loading: ${time_elapsed}ms`);
-          resolve(await this.processImage(image));
+          resolve(await this.processImage(image, process_type));
         };
         img.src = image.url;
       }
@@ -377,27 +387,49 @@ export class TrustMark {
       if (IS_NODE) {
         const time_elapsed = new Date().getTime() - start_time.getTime();
         tsLog(`Loading: ${time_elapsed}ms`);
-        resolve(await this.processImage(image));
+        resolve(await this.processImage(image, process_type));
       }
     });
   }
 
   /**
-   * Loads the ONNX models for preprocessing, encoding, and decoding.
+   * Loads the necessary models based on the specified type.
+   *
+   * @param {string} [type='Q'] - The type of models to load ('Q' or 'P').
+   * @throws {Error} Throws an error if there is an issue loading any of the models.
    */
-  async loadModels() {
+  async loadModels(type: string = 'Q') {
     // Fetch model URLs
     const models: any = await getModels();
 
+    let decoder_model_url;
+    let encoder_model_url;
+
+    this.model_type = type;
     // Define model URLs
-    const decoder_model_url = models['decoder_Q.onnx'];
-    const encoder_model_url = models['encoder_Q.onnx'];
+    if (type == 'Q') {
+      decoder_model_url = models['decoder_Q.onnx'];
+      encoder_model_url = models['encoder_Q.onnx'];
+    }
+
+    if (type == 'P') {
+      decoder_model_url = models['decoder_P.onnx'];
+      encoder_model_url = models['encoder_P.onnx'];
+      // Load preprocessing model for decoding
+      this.preprocess_224_session = await ort.InferenceSession.create('models/preprocess_224.onnx').catch(
+        (error: any) => {
+          throw new Error(`Error loading preprocessing ONNX model: ${error}`);
+        },
+      );
+    }
+
     const session_option = { executionProviders: ['cpu'] };
 
-    // Load preprocessing model
-    this.preprocess_session = await ort.InferenceSession.create('models/preprocess.onnx').catch((error: any) => {
-      throw new Error(`Error loading preprocessing ONNX model: ${error}`);
-    });
+    this.preprocess_256_session = await ort.InferenceSession.create('models/preprocess_256.onnx').catch(
+      (error: any) => {
+        throw new Error(`Error loading preprocessing ONNX model: ${error}`);
+      },
+    );
 
     // Load decoder model
     this.decoder_session = await ort.InferenceSession.create(decoder_model_url, session_option).catch((error: any) => {
@@ -549,8 +581,13 @@ async function storeFileInCache(model_name: string, blob: Blob) {
   }
 }
 
-// Drawing the Progress Bar Image
-function drawProgressBar(progress: number) {
+/**
+ * Draws a text-based progress bar.
+ *
+ * @param {number} progress - The progress percentage (0 to 100).
+ * @returns {string} The string representation of the progress bar.
+ */
+function drawProgressBar(progress: number): string {
   const barWidth = 30;
   const filledWidth = Math.floor((progress / 100) * barWidth);
   const emptyWidth = barWidth - filledWidth;
@@ -566,13 +603,23 @@ function sha(content: Uint8Array) {
   }
 }
 
+/**
+ * Pauses the execution of the current thread for a specified amount of time.
+ *
+ * @param {number} m - The number of milliseconds to sleep.
+ */
 function sleep(m: number) {
   if (IS_BROWSER) {
     return new Promise((resolve) => setTimeout(resolve, m));
   }
 }
 
-function tsLog(str: string, browser_only = false) {
+/**
+ * Logs a message based on the environment and browser_only flag.
+ * @param {string} str - The message to log.
+ * @param {boolean} [browser_only=false] - If true, logs only in the browser environment.
+ */
+function tsLog(str: string, browser_only: boolean = false) {
   if (IS_BROWSER) {
     const payloadevt = new CustomEvent('status', { detail: str });
     window.dispatchEvent(payloadevt);
@@ -581,7 +628,12 @@ function tsLog(str: string, browser_only = false) {
     console.log(str);
   }
 }
-
+/**
+ * Generates a SHA-256 hash of the provided content.
+ *
+ * @param {Uint8Array} content - The content to be hashed.
+ * @returns {Promise<string>} A promise that resolves with the hash as a hexadecimal string.
+ */
 async function hash(content: Uint8Array): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', content);
   const hashArray = Array.from(new Uint8Array(hashBuffer));

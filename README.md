@@ -39,7 +39,14 @@ let decoded = await tm.decode("tests/fixtures/CLIC_watermarked.jpeg");
 
 # Models
 
-TrustMark.js is using the Q (quality) model variant, trained to encode a payload of 100 bits. Models are fetched and cached on first use into `models` directory on Node.js, and into the [CacheStorage](https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage) in a browser environment.
+TrustMark.js is using the Q (quality) and P (perceptual) model variants, trained to encode a payload of 100 bits. Models are fetched and cached on first use into `models` directory on Node.js, and into the [CacheStorage](https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage) in a browser environment.
+
+## TrustMark-Q (Quality) (default)
+Offers a good balance between robustness and quality
+
+## TrustMark-P (Perceptual)
+Gives high visual quality with PSNR exceeding 50db but less robustness to more severe noise degradations, yet it will survive most content distribution platforms.
+
 
 ## Supported data schema modes
 * `Encoding.BCH_5` - Protected payload of 61 bits (+ 35 ECC bits) - allows for 5 bit flips.
@@ -49,7 +56,7 @@ TrustMark.js is using the Q (quality) model variant, trained to encode a payload
 
 ## Preprocessing model
 
-The model `models/preprocess.onnx` is used to resize images to the format expected as input for the Trustmark models. It is mandatory to get the same inference results as the original Python implementation.
+The models `models/preprocess_224.onnx` and `models/preprocess_256.onnx` are used to resize images to the format expected as input for the Trustmark models. It is mandatory to get the same inference results as the original Python implementation.
 
 # Decode
 ```javascript
